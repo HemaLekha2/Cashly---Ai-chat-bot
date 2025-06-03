@@ -4,7 +4,7 @@ import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class MyApp : Application(){
+class SmartSpendBotApp : Application(){
     override fun onCreate() {
         super.onCreate()
         // Initialize your app here if needed
