@@ -1,4 +1,6 @@
 package com.example.smartspendchatbot.model
 
-class Message {
-}
+data class Message(
+    val text: String,
+    val isUser: Boolean
+)
