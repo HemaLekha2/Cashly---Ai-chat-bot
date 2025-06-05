@@ -8,15 +8,19 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.example.smartspendchatbot.viewmodel.BudgetViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,10 +32,15 @@ fun ChatbotScreen(
     var userInput by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
     val scrollState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val isLoading = viewModel.isLoadingAiResponse.value
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            scrollState.animateScrollToItem(0)
+            coroutineScope.launch {
+                // Scroll to the last item
+                scrollState.animateScrollToItem(messages.lastIndex)
+            }
         }
     }
 
@@ -43,16 +52,22 @@ fun ChatbotScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back to Setup"
                         )
                     }
                 },
                 actions = {
+                    // Analyze Spending action using BarChart icon
                     IconButton(onClick = {
-                        viewModel.sendUserMessage("Remaining budget")
-                    }) {
-                        // Use an available icon
-                        Icon(Icons.Default.AccountCircle, contentDescription = "Remaining")
+                        viewModel.sendUserMessage("Analyze my spending")
+                    }, enabled = !isLoading) {
+                        Icon(Icons.Filled.ShoppingCart, contentDescription = "Analyze Spending")
+                    }
+                    // Get Budget Plan action using MonetizationOn icon
+                    IconButton(onClick = {
+                        viewModel.sendUserMessage("Give me a budget plan")
+                    }, enabled = !isLoading) {
+                        Icon(Icons.Filled.Build, contentDescription = "Get Budget Plan")
                     }
                 }
             )
@@ -63,57 +78,54 @@ fun ChatbotScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            // Message List
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 8.dp),
-                reverseLayout = true,
-                state = scrollState
+                state = scrollState,
+                contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(messages.reversed()) { msg ->
-                    // Make sure you have a MessageBubble Composable
+                items(messages) { msg ->
                     MessageBubble(msg)
                 }
             }
 
-            // Input Area
             Row(
                 modifier = Modifier
                     .padding(8.dp)
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
                     value = userInput,
                     onValueChange = { userInput = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Ask about spending...") },
+                    placeholder = { Text("Ask for plan, analysis, or advice...") },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
-                        if (userInput.isNotBlank()) {
-                            viewModel.sendUserMessage(userInput.trim())
+                        if (userInput.isNotBlank() && !isLoading) {
+                            viewModel.sendUserMessage(userInput)
                             userInput = ""
                             focusManager.clearFocus()
                         }
                     }),
                     leadingIcon = {
-                        // Use an available icon
-                        Icon(Icons.Default.ShoppingCart,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
+                        Icon(Icons.Filled.Info, contentDescription = null)
+                    },
+                    enabled = !isLoading
                 )
+                Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = {
-                        if (userInput.isNotBlank()) {
-                            viewModel.sendUserMessage(userInput.trim())
+                        if (userInput.isNotBlank() && !isLoading) {
+                            viewModel.sendUserMessage(userInput)
                             userInput = ""
                             focusManager.clearFocus()
                         }
                     },
-                    modifier = Modifier.padding(start = 8.dp)
+                    enabled = !isLoading
                 ) {
-                    Text("Send")
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
                 }
             }
         }

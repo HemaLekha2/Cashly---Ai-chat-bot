@@ -1,7 +1,9 @@
 package com.example.smartspendchatbot.screen
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -9,108 +11,119 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.smartspendchatbot.viewmodel.BudgetViewModel
+import java.util.Locale
 
 @Composable
 fun BudgetSetupScreen(
     viewModel: BudgetViewModel,
     onContinue: () -> Unit
 ) {
-    var budgetInput by remember { mutableStateOf("") }
+    var incomeInput by remember { mutableStateOf(viewModel.monthlyIncome.doubleValue.takeIf { it > 0 }?.toString() ?: "") }
+    var budgetInput by remember { mutableStateOf(
+        (if (viewModel.isMonthly.value) viewModel.monthlyBudget.doubleValue else viewModel.weeklyBudget.doubleValue)
+            .takeIf { it > 0 }?.toString() ?: ""
+    ) }
     var expenseInput by remember { mutableStateOf("") }
     var expenseDesc by remember { mutableStateOf("") }
+
+    LaunchedEffect(viewModel.isMonthly.value) {
+        budgetInput = (if (viewModel.isMonthly.value) viewModel.monthlyBudget.doubleValue else viewModel.weeklyBudget.doubleValue)
+            .takeIf { it > 0 }?.toString() ?: ""
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Budget Type Toggle
-        Row(Modifier.padding(bottom = 16.dp)) {
-            Text("Budget Type:", modifier = Modifier.padding(end = 8.dp))
+        Text("Setup Your Budget", style = MaterialTheme.typography.headlineMedium)
+
+        OutlinedTextField(
+            value = incomeInput,
+            onValueChange = { incomeInput = it },
+            label = { Text("Monthly Income (₹)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), // Fixed: NumberDecimal -> Decimal
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Budget Period:", modifier = Modifier.padding(end = 8.dp))
+            Text(
+                text = if (viewModel.isMonthly.value) "Monthly" else "Weekly",
+                modifier = Modifier.weight(1f)
+            )
             Switch(
                 checked = viewModel.isMonthly.value,
                 onCheckedChange = { viewModel.isMonthly.value = it }
             )
-            Text(
-                if (viewModel.isMonthly.value) "Monthly" else "Weekly",
-                Modifier.padding(start = 8.dp)
-            )
         }
 
-        // Budget Input
-        Text(
-            if (viewModel.isMonthly.value) "Monthly Budget (₹)" else "Weekly Budget (₹)",
-            style = MaterialTheme.typography.headlineSmall
-        )
         OutlinedTextField(
             value = budgetInput,
             onValueChange = { budgetInput = it },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            label = { Text("Amount") },
+            label = { Text(if (viewModel.isMonthly.value) "Monthly Budget (₹)" else "Weekly Budget (₹)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), // Fixed: NumberDecimal -> Decimal
             modifier = Modifier.fillMaxWidth()
         )
+
         Button(
             onClick = {
-                budgetInput.toDoubleOrNull()?.let {
-                    viewModel.setBudget(it)
-                }
+                val income = incomeInput.toDoubleOrNull() ?: 0.0
+                val budget = budgetInput.toDoubleOrNull() ?: 0.0
+                viewModel.saveBudgetSettings(income, budget, viewModel.isMonthly.value)
             },
-            modifier = Modifier.padding(top = 8.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Set Budget")
+            Text("Save Budget Settings")
         }
 
-        // Expense Input
-        Divider(Modifier.padding(vertical = 24.dp))
-        Text("Add Expense", style = MaterialTheme.typography.titleMedium)
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+        Text("Add Expense", style = MaterialTheme.typography.titleLarge)
         OutlinedTextField(
             value = expenseInput,
             onValueChange = { expenseInput = it },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             label = { Text("Amount (₹)") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), // Fixed: NumberDecimal -> Decimal
+            modifier = Modifier.fillMaxWidth()
         )
         OutlinedTextField(
             value = expenseDesc,
             onValueChange = { expenseDesc = it },
-            label = { Text("Description") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
+            label = { Text("Description (e.g., Groceries, Rent)") },
+            modifier = Modifier.fillMaxWidth()
         )
         Button(
             onClick = {
                 expenseInput.toDoubleOrNull()?.let {
-                    viewModel.addExpense(it, expenseDesc)
+                    viewModel.addExpense(it, expenseDesc.ifBlank { "Uncategorized" })
                     expenseInput = ""
                     expenseDesc = ""
                 }
             },
-            modifier = Modifier.padding(top = 8.dp)
+            modifier = Modifier.align(Alignment.End)
         ) {
             Text("Add Expense")
         }
 
-        // Budget Summary
-        Divider(Modifier.padding(vertical = 24.dp))
-        Text("Budget Summary", style = MaterialTheme.typography.titleLarge)
-        Text("Total Spent: ₹${"%.2f".format(viewModel.getTotalSpent())}",
-            modifier = Modifier.padding(top = 8.dp))
-        Text("Remaining: ₹${"%.2f".format(viewModel.getRemaining())}")
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-        // Continue Button
+        Text("Current Summary", style = MaterialTheme.typography.titleLarge)
+        Text("Total Spent (Current Period): ₹${String.format(Locale.US, "%.2f", viewModel.getTotalSpent())}")
+        Text("Remaining Budget: ₹${String.format(Locale.US, "%.2f", viewModel.getRemaining())}")
+        Text("Suggested Daily Spend: ₹${String.format(Locale.US, "%.2f", viewModel.getDailyBudget())}")
+
         Button(
             onClick = onContinue,
             modifier = Modifier
-                .padding(top = 32.dp)
+                .padding(top = 24.dp)
                 .fillMaxWidth(),
-            enabled = viewModel.monthlyBudget.value > 0 || viewModel.weeklyBudget.value > 0
+            enabled = viewModel.monthlyIncome.doubleValue > 0
         ) {
-            Text("Continue to Chatbot")
+            Text("Go to Chatbot / Get Plan")
         }
     }
 }

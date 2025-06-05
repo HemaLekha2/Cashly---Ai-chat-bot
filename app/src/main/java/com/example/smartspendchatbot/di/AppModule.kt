@@ -6,7 +6,7 @@ import com.example.smartspendchatbot.data.local.BudgetDao
 import com.example.smartspendchatbot.data.local.ExpenseDao
 import com.example.smartspendchatbot.data.local.LocalDatabase
 import com.example.smartspendchatbot.data.repository.BudgetRepository
-import com.example.smartspendchatbot.ai.OpenAIHelper
+import com.example.smartspendchatbot.ai.GoogleAiHelper // Import the renamed helper
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -21,9 +21,13 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDatabase(
-        @ApplicationContext app: Context // <-- THIS IS THE FIX!
+        @ApplicationContext app: Context
     ): LocalDatabase =
-        Room.databaseBuilder(app, LocalDatabase::class.java, "smart_spend_db").build()
+        Room.databaseBuilder(app, LocalDatabase::class.java, "smart_spend_db")
+            // Add migrations if your schema changed and you need to preserve data
+            // .addMigrations(MIGRATION_1_2) // Example
+            .fallbackToDestructiveMigration() // Or allow destructive migration during development
+            .build()
 
     @Provides
     fun provideBudgetDao(db: LocalDatabase): BudgetDao = db.budgetDao()
@@ -38,7 +42,8 @@ object AppModule {
         expenseDao: ExpenseDao
     ): BudgetRepository = BudgetRepository(budgetDao, expenseDao)
 
+    // Provide the renamed GoogleAiHelper
     @Provides
     @Singleton
-    fun provideOpenAIHelper(): OpenAIHelper = OpenAIHelper()
+    fun provideGoogleAiHelper(): GoogleAiHelper = GoogleAiHelper()
 }
