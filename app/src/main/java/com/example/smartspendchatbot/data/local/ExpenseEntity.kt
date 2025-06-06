@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val amount: Double,
-    val date: String, // Changed to LocalDate
-    val description: String
+    val date: String, // Consider storing as Long (Epoch Millis) or ensure consistent ISO format
+    val description: String,
+    val category: String = "Uncategorized" // Added category field
 )

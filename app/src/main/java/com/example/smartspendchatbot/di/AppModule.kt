@@ -24,9 +24,10 @@ object AppModule {
         @ApplicationContext app: Context
     ): LocalDatabase =
         Room.databaseBuilder(app, LocalDatabase::class.java, "smart_spend_db")
-            // Add migrations if your schema changed and you need to preserve data
-            // .addMigrations(MIGRATION_1_2) // Example
-            .fallbackToDestructiveMigration() // Or allow destructive migration during development
+            // TODO: Implement proper database migrations instead of fallbackToDestructiveMigration.
+            // This is crucial for production apps to avoid data loss during schema updates.
+            // Example: .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .fallbackToDestructiveMigration(false) // Removed: Avoid using this in production
             .build()
 
     @Provides

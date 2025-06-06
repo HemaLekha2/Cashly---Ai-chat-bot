@@ -1,3 +1,4 @@
+
 package com.example.smartspendchatbot.screen
 
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.example.smartspendchatbot.viewmodel.BudgetViewModel
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetSetupScreen(
     viewModel: BudgetViewModel,
@@ -25,6 +27,8 @@ fun BudgetSetupScreen(
     ) }
     var expenseInput by remember { mutableStateOf("") }
     var expenseDesc by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf(viewModel.categories.firstOrNull() ?: "Other") }
+    var categoryDropdownExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.isMonthly.value) {
         budgetInput = (if (viewModel.isMonthly.value) viewModel.monthlyBudget.doubleValue else viewModel.weeklyBudget.doubleValue)
@@ -45,7 +49,7 @@ fun BudgetSetupScreen(
             value = incomeInput,
             onValueChange = { incomeInput = it },
             label = { Text("Monthly Income (₹)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), // Fixed: NumberDecimal -> Decimal
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -65,7 +69,7 @@ fun BudgetSetupScreen(
             value = budgetInput,
             onValueChange = { budgetInput = it },
             label = { Text(if (viewModel.isMonthly.value) "Monthly Budget (₹)" else "Weekly Budget (₹)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), // Fixed: NumberDecimal -> Decimal
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -87,7 +91,7 @@ fun BudgetSetupScreen(
             value = expenseInput,
             onValueChange = { expenseInput = it },
             label = { Text("Amount (₹)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), // Fixed: NumberDecimal -> Decimal
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth()
         )
         OutlinedTextField(
@@ -96,12 +100,48 @@ fun BudgetSetupScreen(
             label = { Text("Description (e.g., Groceries, Rent)") },
             modifier = Modifier.fillMaxWidth()
         )
+
+        // Category Dropdown
+        ExposedDropdownMenuBox(
+            expanded = categoryDropdownExpanded,
+            onExpandedChange = { categoryDropdownExpanded = !categoryDropdownExpanded },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = selectedCategory,
+                onValueChange = {}, // Read-only
+                label = { Text("Category") },
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
+                modifier = Modifier
+                    .menuAnchor() // Required for Dropdown
+                    .fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = categoryDropdownExpanded,
+                onDismissRequest = { categoryDropdownExpanded = false }
+            ) {
+                viewModel.categories.forEach { category ->
+                    DropdownMenuItem(
+                        text = { Text(category) },
+                        onClick = {
+                            selectedCategory = category
+                            categoryDropdownExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
         Button(
             onClick = {
                 expenseInput.toDoubleOrNull()?.let {
-                    viewModel.addExpense(it, expenseDesc.ifBlank { "Uncategorized" })
+                    // Pass selected category to addExpense
+                    viewModel.addExpense(it, expenseDesc.ifBlank { "Misc." }, selectedCategory)
                     expenseInput = ""
                     expenseDesc = ""
+                    // Optionally reset category or keep it for next entry
+                    // selectedCategory = viewModel.categories.firstOrNull() ?: "Other"
                 }
             },
             modifier = Modifier.align(Alignment.End)
@@ -127,3 +167,4 @@ fun BudgetSetupScreen(
         }
     }
 }
+

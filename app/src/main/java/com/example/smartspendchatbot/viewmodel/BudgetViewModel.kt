@@ -1,3 +1,4 @@
+
 package com.example.smartspendchatbot.viewmodel
 
 import androidx.compose.runtime.*
@@ -37,6 +38,9 @@ class BudgetViewModel @Inject constructor(
     var chatMessages = mutableStateListOf<Message>()
     var isLoadingAiResponse = mutableStateOf(false)
 
+    // Predefined categories
+    val categories = listOf("Food", "Transport", "Utilities", "Entertainment", "Shopping", "Rent/Mortgage", "Health", "Other")
+
     init {
         loadData()
         // Add initial bot message if needed
@@ -57,7 +61,13 @@ class BudgetViewModel @Inject constructor(
             _expenses.addAll(repository.getAllExpenses().mapNotNull { entity ->
                 try {
                     // Safely parse the date string using ISO_LOCAL_DATE
-                    Expense(entity.amount, LocalDate.parse(entity.date, DateTimeFormatter.ISO_LOCAL_DATE), entity.description)
+                    // Map category from entity to model
+                    Expense(
+                        amount = entity.amount,
+                        date = LocalDate.parse(entity.date, DateTimeFormatter.ISO_LOCAL_DATE),
+                        description = entity.description,
+                        category = entity.category
+                    )
                 } catch (e: DateTimeParseException) {
                     Log.e("BudgetViewModel", "Failed to parse date: ${entity.date}", e)
                     null // Skip invalid entries
@@ -94,16 +104,19 @@ class BudgetViewModel @Inject constructor(
         }
     }
 
-    fun addExpense(amount: Double, description: String) {
+    // Updated addExpense to include category
+    fun addExpense(amount: Double, description: String, category: String) {
         val today = LocalDate.now()
-        val exp = Expense(amount, today, description)
+        val categoryToSave = category.ifBlank { "Uncategorized" }
+        val exp = Expense(amount, today, description, categoryToSave)
         _expenses.add(exp)
         viewModelScope.launch {
             repository.addExpense(
                 ExpenseEntity(
                     amount = amount,
                     date = today.format(DateTimeFormatter.ISO_LOCAL_DATE), // Format date to String
-                    description = description
+                    description = description,
+                    category = categoryToSave // Save category
                 )
             )
         }
@@ -151,11 +164,8 @@ class BudgetViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val currentIncome = monthlyIncome.doubleValue
-                val currentExpenses = repository.getAllExpenses().mapNotNull { entity ->
-                    try {
-                        Expense(entity.amount, LocalDate.parse(entity.date, DateTimeFormatter.ISO_LOCAL_DATE), entity.description)
-                    } catch (e: Exception) { null }
-                }
+                // Use the current state of _expenses which includes categories
+                val currentExpenses = _expenses.toList() // Create a snapshot
 
                 if (currentIncome <= 0) {
                     // Remove loading message using index
@@ -167,14 +177,15 @@ class BudgetViewModel @Inject constructor(
                     return@launch
                 }
 
+                // Include category in the expense summary for the AI
                 val expenseSummary = currentExpenses
                     .sortedByDescending { it.date }
                     .take(20)
-                    .joinToString("\n") { "- ${it.date}: ${it.description} (₹${it.amount})" }
+                    .joinToString("\n") { "- ${it.date}: ${it.description} (${it.category}) - ₹${it.amount}" }
 
                 val financialContext = """
                 Monthly Income: ₹$currentIncome
-                Recent Expenses:
+                Recent Expenses (Date: Description (Category) - Amount):
                 $expenseSummary
                 User Request: $userRequest
                 """
@@ -222,10 +233,11 @@ class BudgetViewModel @Inject constructor(
                  if (loadingMessageIndex >= 0 && loadingMessageIndex < chatMessages.size) {
                     chatMessages.removeAt(loadingMessageIndex)
                  }
-                 chatMessages.add(Message("Sorry, I couldn't process that: ${e.message}", false))
+                 chatMessages.add(Message("Sorry, I couldn\'t process that: ${e.message}", false))
              } finally {
                  isLoadingAiResponse.value = false
              }
          }
     }
 }
+
